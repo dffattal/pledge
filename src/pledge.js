@@ -37,31 +37,57 @@ $Promise.prototype.then = function(successHandler, errorHandler) {
     if (typeof errorHandler !== 'function') {
       errorHandler = null
     }
-    this._handlerGroups.push({successCb: successHandler, errorCb: errorHandler})
+    // console.log(this._value)
+    var newPromise = new $Promise
+
+    // if (successHandler === null) {
+    //   //console.log(this._value)
+    //   newPromise._internalResolve(this._value)
+    // }
+
+    this._handlerGroups.push({successCb: successHandler, errorCb: errorHandler, downstreamPromise: newPromise})
+
+    if (successHandler !== null || successHandler === null && errorHandler === null) {
+      return this._handlerGroups[this._handlerGroups.length - 1].downstreamPromise
+    }
   } else if (this._state === 'fulfilled') {
     successHandler(this._value)
-  } else {
-    if (errorHandler) {
-      errorHandler(this._value)
-    }
+    // this._handlerGroups.downstreamPromise._internalResolve = this._value;
+  } else if (errorHandler) {
+    errorHandler(this._value)
   }
 }
 
 $Promise.prototype._callHandlers = function(value) {
-  console.log(this)
+  // console.log(this)
   if (this._state === 'fulfilled') {
     this._handlerGroups.forEach(function(cbObj) {
-      cbObj.successCb(value)
+      if (cbObj.successCb !== null) {
+        var successVal = cbObj.successCb(value)
+        if (cbObj.downstreamPromise) {
+          cbObj.downstreamPromise._internalResolve(successVal)
+        }
+      } else if (cbObj.downstreamPromise) {
+        cbObj.downstreamPromise._internalResolve(value)
+      }
     })
   } else {
     this._handlerGroups.forEach(function(cbObj) {
-      cbObj.errorCb(value)
+      if (cbObj.errorCb !== null) {
+        var errorVal = cbObj.errorCb(value)
+        if (cbObj.downstreamPromise) {
+          cbObj.downstreamPromise._internalResolve(errorVal)
+        }
+      } else if (cbObj.downstreamPromise) {
+        cbObj.downstreamPromise._internalReject(value)
+      }
     })
   }
   this._handlerGroups = []
 }
 
 $Promise.prototype.catch = function(errorHandler) {
+  debugger
   this.then(null, errorHandler)
 }
 
